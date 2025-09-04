@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>板绘线条训练工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .canvas-shadow {
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            }
+            .tool-btn {
+                @apply px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2;
+            }
+            .tool-btn-primary {
+                @apply bg-primary hover:bg-primary/90 text-white;
+            }
+            .tool-btn-secondary {
+                @apply bg-light border border-gray-300 hover:bg-gray-100 text-dark;
+            }
+            .radio-option {
+                @apply px-3 py-1 rounded-md border transition-all duration-200 cursor-pointer;
+            }
+            .radio-option:has(input:checked) {
+                @apply border-primary bg-primary/10 text-primary font-medium;
+            }
+            .radio-option:has(input:disabled) {
+                @apply border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed;
+            }
+            .counter-display {
+                @apply ml-4 px-3 py-1 bg-gray-100 rounded-md text-sm text-gray-700;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter min-h-screen flex flex-col">
+    <!-- 主内容区 -->
+     <main class="flex-grow flex flex-col items-center justify-center p-4 md:p-8">
+         <!-- 顶部工具栏 -->
+         <div class="bg-white rounded-xl p-4 shadow-sm mb-6 flex items-center gap-8" style="width: 1500px; max-width: 100%;">
+             <button id="resetBtn" class="tool-btn tool-btn-primary" style="min-width:100px; width: 100px;">
+                 <i class="fa fa-refresh"></i>
+                 <span style="min-width: 40px; display: inline-block;">重置</span>
+             </button>
+             
+             <!-- 线条模式选择 -->
+             <div class="flex items-center gap-4" style="min-width: 300px;">
+                 <span class="text-sm font-medium text-gray-700" style="min-width: 80px; display: inline-block;">线条模式：</span>
+                 <div class="flex gap-3" style="min-width: 120px;">
+                     <label class="radio-option" style="min-width: 100px; width: 100px; text-align: center;">
+                         <input type="radio" name="lineMode" value="horizontal" class="hidden" checked>
+                         <span style="min-width: 40px; display: inline-block;">横线</span>
+                     </label>
+                     <label class="radio-option" style="min-width: 100px; width: 100px; text-align: center;">
+                         <input type="radio" name="lineMode" value="vertical" class="hidden">
+                         <span style="min-width: 40px; display: inline-block;">竖线</span>
+                     </label>
+                 </div>
+             </div>
+             
+             <!-- 辅助线复选框 -->
+             <label class="tool-btn tool-btn-secondary cursor-pointer flex items-center gap-3 ml-4" style="min-width: 150px; width: 100px;">
+                 <input type="checkbox" id="showGuidelines" class="mr-2 h-4 w-4 accent-primary">
+                 <span style="min-width: 150px; display: inline-block;">辅助线</span>
+             </label>
+             
+             <!-- 自动重置复选框 -->
+             <label class="tool-btn tool-btn-secondary cursor-pointer flex items-center gap-2" style="min-width: 150px; width: 150px;">
+                 <input type="checkbox" id="autoReset" class="mr-1 h-4 w-4 accent-primary">
+                 <span style="min-width: 60px; display: inline-block;">自动重置</span>
+             </label>
+             
+             <!-- 次数选择单选按钮组 -->
+             <div class="flex items-center gap-2" id="countOptions" style="min-width: 180px;">
+                 <label class="radio-option" style="min-width: 100px; width: 100px; text-align: center;">
+                     <input type="radio" name="resetCount" value="10" class="hidden" disabled>
+                     <span style="min-width: 40px; display: inline-block;">10次</span>
+                 </label>
+                 <label class="radio-option" style="min-width: 100px; width: 100px; text-align: center;">
+                     <input type="radio" name="resetCount" value="30" class="hidden" disabled>
+                     <span style="min-width: 40px; display: inline-block;">30次</span>
+                 </label>
+                 <label class="radio-option" style="min-width: 100px; width: 100px; text-align: center;">
+                     <input type="radio" name="resetCount" value="50" class="hidden" disabled>
+                     <span style="min-width: 40px; display: inline-block;">50次</span>
+                 </label>
+             </div>
+             
+             <!-- 操作次数显示 -->
+             <div class="counter-display ml-6" style="min-width: 150px; width: 150px;">
+                 <span class="text-lg font-semibold" style="min-width: 120px; display: inline-block;">
+                     总共：&nbsp;&nbsp;&nbsp;<span id="totalCount" class="text-lg font-bold text-secondary" style="min-width: 30px; display: inline-block; margin: 0 8px;">0</span>&nbsp;&nbsp;&nbsp;次
+                 </span>
+             </div>
+         </div>
+         
+         <!-- 绘画区域和评分表容器 -->
+         <div class="flex gap-8 items-start">
+             <!-- 绘画区域 -->
+             <div class="relative">
+                 <canvas 
+                     id="drawingCanvas" 
+                     width="800" 
+                     height="600" 
+                     class="bg-white border-2 border-black rounded-md canvas-shadow transition-all duration-300 hover:scale-[1.01]"
+                 ></canvas>
+                 
+                 <!-- 加载状态覆盖层 (默认隐藏) -->
+                 <div id="loadingOverlay" class="absolute inset-0 bg-black/50 rounded-md flex items-center justify-center hidden">
+                     <div class="text-white text-xl">
+                         <i class="fa fa-circle-o-notch fa-spin mr-2"></i>
+                         <span>重置中...</span>
+                     </div>
+                 </div>
+             </div>
+             
+             <!-- 评分表 - 恢复到右侧 -->
+             <div id="scorePanel" class="bg-white rounded-lg shadow-lg p-4 w-48 border border-gray-200 flex flex-col" style="height: 600px;">
+                 <h3 class="text-lg font-bold text-gray-800 mb-3 text-center">评分表</h3>
+                 <div id="scoreList" class="space-y-2 flex-1">
+                     <!-- 评分项将在这里动态生成 -->
+                 </div>
+                 <div class="mt-3 pt-2 border-t border-gray-200 text-xs text-gray-600">
+                     <div class="font-medium">规则：</div>
+                 </div>
+             </div>
+         </div>
+         
+         <!-- 移动端提示 -->
+         <div class="mt-6 text-center text-gray-500 text-sm md:hidden">
+             <i class="fa fa-mobile text-2xl mr-1" aria-hidden="true"></i>
+             <span>在移动设备上，您可以触摸并滑动屏幕进行绘画</span>
+         </div>
+     </main>
+
+    <!-- 页脚 -->
+     <footer class="bg-dark text-white py-4 mt-8">
+         <div class="container mx-auto px-4 flex justify-between items-center text-sm">
+             <p id="footerText" class="text-center flex-1 leading-relaxed">板绘线条简易训练工具 © 2025 - 持之以恒，量变到质变！</p>
+             <div class="flex space-x-3">
+                  <button id="langEn" class="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded transition-colors min-w-[60px] text-white" onclick="switchLanguage('en')">En</button>
+                  <button id="langZh" class="px-3 py-2 text-sm bg-primary text-white rounded transition-colors min-w-[60px]" onclick="switchLanguage('zh')">简</button>
+              </div>
+         </div>
+     </footer>
+
+    <script>
+        // 绘画状态变量 - 必须在所有函数之前定义
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let hasDrawn = false;
+        let drawCount = 0;          // 当前绘画次数
+        let totalCount = 0;         // 总共绘画次数
+        let resetAfterCount = 10;   // 默认重置次数
+        let currentPath = [];       // 存储当前绘画路径的点
+        let scores = [];            // 存储评分历史，最多10个
+        let currentLineMode = 'horizontal'; // 当前线条模式：horizontal 或 vertical
+        let showGuidelines = false; // 是否显示辅助线
+        let currentLang = 'zh';     // 当前语言
+        
+        // 语言配置
+        const translations = {
+            zh: {
+                title: "板绘线条训练工具",
+                resetBtn: "重置",
+                clearBtn: "清空画布",
+                lineMode: "线条模式：",
+                horizontal: "横线",
+                vertical: "竖线",
+                guidelines: "辅助线",
+                autoReset: "自动重置",
+                times10: "10次",
+                times30: "30次",
+                times50: "50次",
+                currentCount: "当前：",
+                times: "次",
+                tip: "提示：点击并拖动鼠标绘制线条",
+                scorePanel: "评分表",
+                noScores: "暂无评分",
+                rules: "规则：",
+                ruleDescription: "分析线条平直程度",
+                footerText: "板绘线条简易训练工具 © 2025 - 持之以恒，量变到质变！",
+                mobileTip: "在移动设备上，您可以触摸并滑动屏幕进行绘画"
+            },
+            en: {
+                title: "Drawing Line Training Tool",
+                resetBtn: "Reset",
+                clearBtn: "Clear Canvas",
+                lineMode: "Line Mode:",
+                horizontal: "Horizontal",
+                vertical: "Vertical",
+                guidelines: "Guidelines",
+                autoReset: "Auto Reset",
+                times10: "10 times",
+                times30: "30 times",
+                times50: "50 times",
+                currentCount: "Current: ",
+                times: " times",
+                tip: "Tip: Click and drag to draw lines",
+                scorePanel: "Score Panel",
+                noScores: "No scores yet",
+                rules: "Rules:",
+                ruleDescription: "Analyze line straightness",
+                footerText: "Drawing Line Training Tool © 2025 - Persistence leads to perfection!",
+                mobileTip: "On mobile devices, touch and swipe to draw"
+            }
+        };
+
+        // 获取DOM元素 - 在初始化语言之前获取所有元素
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const resetBtn = document.getElementById('resetBtn');
+        const scoreList = document.getElementById('scoreList');
+        const currentCountDisplay = document.getElementById('currentCount');
+        const totalCountDisplay = document.getElementById('totalCount'); // 新增总共计数显示
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const autoResetCheckbox = document.getElementById('autoReset');
+        const showGuidelinesCheckbox = document.getElementById('showGuidelines');
+        const lineModeRadios = document.querySelectorAll('input[name="lineMode"]');
+        const radioOptions = document.querySelectorAll('input[name="resetCount"]');
+
+        // 语言切换函数
+        function switchLanguage(lang) {
+            currentLang = lang;
+            applyTranslations();
+            
+            // 更新按钮样式
+            const langEnBtn = document.getElementById('langEn');
+            const langZhBtn = document.getElementById('langZh');
+            if (langEnBtn && langZhBtn) {
+                if (lang === 'en') {
+                    langEnBtn.className = 'px-3 py-2 text-sm bg-primary text-white rounded transition-colors min-w-[60px]';
+                    langZhBtn.className = 'px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded transition-colors min-w-[60px] text-white';
+                } else {
+                    langEnBtn.className = 'px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded transition-colors min-w-[60px] text-white';
+                    langZhBtn.className = 'px-3 py-2 text-sm bg-primary text-white rounded transition-colors min-w-[60px]';
+                }
+            }
+        }
+
+        // 应用翻译 - 添加空值检查
+        // 应用翻译 - 修复评分表文字错乱问题
+        // 应用翻译 - 修复操作次数显示区域的语言更新
+        // 应用翻译 - 固定按钮宽度和位置，仅切换文字
+        function applyTranslations() {
+            const t = translations[currentLang];
+            
+            // 更新页面标题
+            document.title = t.title;
+            
+            // 更新按钮文本 - 保持固定宽度
+            const resetBtnSpan = document.querySelector('#resetBtn span');
+            if (resetBtnSpan) resetBtnSpan.textContent = t.resetBtn;
+            
+            // 更新线条模式标签 - 固定宽度
+            const lineModeLabel = document.querySelector('span.text-sm.font-medium.text-gray-700');
+            if (lineModeLabel) {
+                lineModeLabel.style.minWidth = '80px';
+                lineModeLabel.textContent = t.lineMode;
+            }
+            
+            // 更新单选按钮文本 - 固定宽度容器
+            const radioSpans = document.querySelectorAll('.radio-option span');
+            if (radioSpans.length >= 2) {
+                radioSpans[0].style.minWidth = '40px';
+                radioSpans[1].style.minWidth = '40px';
+                radioSpans[0].textContent = t.horizontal;
+                radioSpans[1].textContent = t.vertical;
+            }
+            
+            // 更新复选框标签 - 固定宽度
+            const checkboxSpans = document.querySelectorAll('label.tool-btn.tool-btn-secondary span');
+            if (checkboxSpans.length >= 2) {
+                checkboxSpans[0].style.minWidth = '50px';
+                checkboxSpans[1].style.minWidth = '60px';
+                checkboxSpans[0].textContent = t.guidelines;
+                checkboxSpans[1].textContent = t.autoReset;
+            }
+            
+            // 更新次数选择 - 固定宽度
+            const countSpans = document.querySelectorAll('#countOptions .radio-option span');
+            if (countSpans.length >= 3) {
+                countSpans.forEach(span => span.style.minWidth = '50px');
+                countSpans[0].textContent = t.times10;
+                countSpans[1].textContent = t.times30;
+                countSpans[2].textContent = t.times50;
+            }
+            
+            // 更新操作次数显示区域 - 固定宽度
+            const counterSpan = document.querySelector('.counter-display span');
+            if (counterSpan) {
+                counterSpan.style.minWidth = '120px';
+                if (currentLang === 'en') {
+                    counterSpan.innerHTML = `Total: <span id="totalCount" class="text-lg font-bold text-secondary">${totalCount}</span> times`;
+                } else {
+                    counterSpan.innerHTML = `总共：<span id="totalCount" class="text-lg font-bold text-secondary">${totalCount}</span>次`;
+                }
+            }
+            
+            // 更新提示文本 - 固定宽度
+            const tipText = document.querySelector('.text-sm.text-gray-500 span');
+            if (tipText) {
+                tipText.style.minWidth = '200px';
+                tipText.textContent = t.tip;
+            }
+            
+            // 更新评分面板标题 - 固定宽度
+            const scorePanelH3 = document.querySelector('#scorePanel h3');
+            if (scorePanelH3) {
+                scorePanelH3.style.minWidth = '60px';
+                scorePanelH3.textContent = t.scorePanel;
+            }
+            
+            // 更新评分规则文本 - 固定宽度
+            const rulesDiv = document.querySelector('#scorePanel .font-medium');
+            if (rulesDiv) {
+                rulesDiv.style.minWidth = '40px';
+                rulesDiv.textContent = t.rules;
+            }
+            
+            // 更新页脚 - 固定宽度
+            const footerText = document.getElementById('footerText');
+            if (footerText) {
+                footerText.style.minWidth = '300px';
+                footerText.textContent = t.footerText;
+            }
+            
+            // 更新移动端提示 - 固定宽度
+            const mobileTip = document.querySelector('.md\\:hidden span');
+            if (mobileTip) {
+                mobileTip.style.minWidth = '250px';
+                mobileTip.textContent = t.mobileTip;
+            }
+            
+            // 重新渲染评分显示，确保语言切换后内容正确
+            updateScoreDisplay();
+        }
+
+        // 初始化语言
+        switchLanguage('zh');
+        
+        // 初始化Canvas
+        function initCanvas() {
+            // 设置线条样式
+            ctx.strokeStyle = '#000000'; // 黑色线条
+            ctx.lineWidth = 2;           // 线条宽度
+            ctx.lineJoin = 'round';      // 线条连接样式
+            ctx.lineCap = 'round';       // 线条端点样式
+            
+            // 清空Canvas
+            clearCanvas();
+        }
+        
+        // 清空Canvas
+        function clearCanvas() {
+            // 显示加载状态
+            loadingOverlay.classList.remove('hidden');
+            
+            // 添加短暂延迟，让用户感知到重置操作
+            setTimeout(() => {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                hasDrawn = false;
+                currentPath = [];
+                
+                // 如果启用了辅助线，绘制辅助线
+                if (showGuidelines) {
+                    drawGuidelines();
+                }
+                
+                loadingOverlay.classList.add('hidden');
+            }, 150);
+        }
+        
+        // 绘制辅助线
+        function drawGuidelines() {
+            if (!showGuidelines) return;
+            
+            ctx.save();
+            ctx.strokeStyle = '#374151'; // 深灰色（加深颜色）
+            ctx.lineWidth = 0.5;         // 更细的线条
+            ctx.setLineDash([]);         // 实线，移除虚线样式
+            
+            if (currentLineMode === 'horizontal') {
+                // 绘制12条横线（从16条减少到12条）
+                const spacing = canvas.height / 13; // 13个间隔，12条线
+                
+                for (let i = 1; i <= 12; i++) {
+                    const y = spacing * i;
+                    ctx.beginPath();
+                    ctx.moveTo(20, y); // 左边距20px
+                    ctx.lineTo(canvas.width - 20, y); // 右边距20px
+                    ctx.stroke();
+                }
+            } else {
+                // 保持12条竖线不变
+                const spacing = canvas.width / 13; // 13个间隔，12条线
+                
+                for (let i = 1; i <= 12; i++) {
+                    const x = spacing * i;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 20); // 上边距20px
+                    ctx.lineTo(x, canvas.height - 20); // 下边距20px
+                    ctx.stroke();
+                }
+            }
+            
+            ctx.restore();
+        }
+        
+        // 清除辅助线而不清空画布
+        function clearGuidelines() {
+            // 保存当前画布内容
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // 清空画布
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 恢复画布内容（但不包括辅助线）
+            ctx.putImageData(imageData, 0, 0);
+        }
+        
+        // 计算线条平直度分数
+        function calculateStraightnessScore(path) {
+            if (path.length < 2) return 0;
+            
+            if (currentLineMode === 'horizontal') {
+                // 横线评分：统计每个Y坐标出现的次数
+                const yCount = {};
+                path.forEach(point => {
+                    const y = Math.round(point.y);
+                    yCount[y] = (yCount[y] || 0) + 1;
+                });
+                
+                // 找出出现次数最多的Y坐标
+                let maxCount = 0;
+                Object.keys(yCount).forEach(y => {
+                    if (yCount[y] > maxCount) {
+                        maxCount = yCount[y];
+                    }
+                });
+                
+                // 计算分数
+                const score = Math.round((maxCount / path.length) * 100);
+                return score;
+            } else {
+                // 竖线评分：统计每个X坐标出现的次数
+                const xCount = {};
+                path.forEach(point => {
+                    const x = Math.round(point.x);
+                    xCount[x] = (xCount[x] || 0) + 1;
+                });
+                
+                // 找出出现次数最多的X坐标
+                let maxCount = 0;
+                Object.keys(xCount).forEach(x => {
+                    if (xCount[x] > maxCount) {
+                        maxCount = xCount[x];
+                    }
+                });
+                
+                // 计算分数
+                const score = Math.round((maxCount / path.length) * 100);
+                return score;
+            }
+        }
+        
+        // 添加评分到历史记录
+        function addScore(score) {
+            scores.unshift(score); // 添加到开头，最新的在最上面
+            if (scores.length > 10) {
+                scores = scores.slice(0, 10); // 只保留最新的10个
+            }
+            updateScoreDisplay();
+        }
+        
+        // 更新评分显示
+        function updateScoreDisplay() {
+            scoreList.innerHTML = '';
+            
+            if (scores.length === 0) {
+                scoreList.innerHTML = '<div class="text-gray-400 text-center py-2 text-sm">' + translations[currentLang].noScores + '</div>';
+            } else {
+                scores.forEach((score, index) => {
+                    const scoreItem = document.createElement('div');
+                    scoreItem.className = 'flex justify-between items-center px-2 py-1';
+                    
+                    const rank = index + 1;
+                    const rankColor = index === 0 ? 'text-yellow-600 font-bold text-2xl' : 'text-gray-600 text-sm';
+                    const scoreSize = index === 0 ? 'text-2xl' : 'text-sm';
+                    
+                    scoreItem.innerHTML = `
+                        <span class="${rankColor}">#${rank}</span>
+                        <span class="font-bold ${score >= 80 ? 'text-green-600' : score >= 60 ? 'text-yellow-600' : 'text-red-600'} ${index === 0 ? 'text-3xl' : 'text-sm'}">
+                            ${score}
+                        </span>
+                    `;
+                    
+                    scoreList.appendChild(scoreItem);
+                });
+            }
+            
+            // 确保规则说明始终显示
+            const rulesContainer = document.querySelector('#scorePanel .mt-3');
+            if (rulesContainer) {
+                rulesContainer.innerHTML = `
+                    <div class="font-medium">${translations[currentLang].rules}</div>
+                    <div class="text-xs text-gray-600 mt-1">${translations[currentLang].ruleDescription}</div>
+                `;
+            }
+        }
+        
+        // 开始绘画
+        function startDrawing(e) {
+            isDrawing = true;
+            
+            // 获取鼠标/触摸位置
+            const pos = getPosition(e);
+            [lastX, lastY] = [pos.x, pos.y];
+            
+            // 开始新的路径
+            currentPath = [{x: pos.x, y: pos.y}];
+        }
+        
+        // 绘画中
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            // 获取鼠标/触摸位置
+            const pos = getPosition(e);
+            const [currentX, currentY] = [pos.x, pos.y];
+            
+            // 开始绘制
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(currentX, currentY);
+            ctx.stroke();
+            
+            // 更新上一个位置
+            [lastX, lastY] = [currentX, currentY];
+            
+            // 记录路径点
+            currentPath.push({x: currentX, y: currentY});
+            
+            hasDrawn = true;
+        }
+        
+        // 结束绘画
+        function stopDrawing() {
+            if (!isDrawing) return;
+            
+            isDrawing = false;
+            
+            // 每次完成一条线，计数加1
+            if (hasDrawn && currentPath.length > 1) {
+                const score = calculateStraightnessScore(currentPath);
+                addScore(score);
+                
+                drawCount++;
+                totalCount++;
+                updateCountDisplay();
+                
+                // 检查是否需要自动重置
+                checkAutoReset();
+            }
+        }
+        
+        // 更新计数显示
+        function updateCountDisplay() {
+            const currentCountDisplay = document.getElementById('currentCount');
+            const totalCountDisplay = document.getElementById('totalCount');
+            
+            if (currentCountDisplay) {
+                currentCountDisplay.textContent = drawCount;
+            }
+            if (totalCountDisplay) {
+                totalCountDisplay.textContent = totalCount;
+            }
+            
+            // 同时更新操作次数显示区域的文本
+            const counterSpan = document.querySelector('.counter-display span');
+            if (counterSpan) {
+                const t = translations[currentLang];
+                counterSpan.innerHTML = `${t.currentCount.replace('：', '')}：<span id="totalCount" class="text-lg font-bold text-secondary">${totalCount}</span>${t.times}`;
+            }
+            
+            console.log('更新计数显示:', '当前=', drawCount, '总共=', totalCount);
+        }
+        
+        // 检查是否需要自动重置
+        function checkAutoReset() {
+            if (autoResetCheckbox.checked && drawCount >= resetAfterCount) {
+                // 达到设定次数，重置画布和计数
+                setTimeout(() => {
+                    clearCanvas();
+                    drawCount = 0;
+                    updateCountDisplay();
+                }, 500);
+            }
+        }
+        
+        // 获取鼠标/触摸在Canvas上的位置
+        function getPosition(e) {
+            const rect = canvas.getBoundingClientRect();
+            
+            // 处理触摸事件
+            if (e.type.includes('touch')) {
+                return {
+                    x: e.touches[0].clientX - rect.left,
+                    y: e.touches[0].clientY - rect.top
+                };
+            } 
+            // 处理鼠标事件
+            else {
+                return {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+            }
+        }
+        
+        // 启用/禁用次数选择
+        function toggleCountOptions(enabled) {
+            radioOptions.forEach(radio => {
+                radio.disabled = !enabled;
+                // 默认选中第一个选项
+                if (enabled && radio.value === '10' && !document.querySelector('input[name="resetCount"]:checked')) {
+                    radio.checked = true;
+                    resetAfterCount = 10;
+                }
+            });
+        }
+        
+        // 事件监听 - 鼠标
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+        
+        // 事件监听 - 触摸设备
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // 防止触摸时页面滚动
+            startDrawing(e);
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // 防止触摸时页面滚动
+            draw(e);
+        });
+        canvas.addEventListener('touchend', stopDrawing);
+        
+        // 重置按钮事件
+        resetBtn.addEventListener('click', () => {
+            clearCanvas();
+            drawCount = 0;
+            updateCountDisplay();
+        });
+        
+        // 线条模式切换事件
+        lineModeRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    currentLineMode = e.target.value;
+                    clearCanvas(); // 切换模式时清空画布并重绘辅助线
+                }
+            });
+        });
+        
+        // 辅助线复选框事件 - 恢复原始行为：切换时刷新绘画区域
+        showGuidelinesCheckbox.addEventListener('change', (e) => {
+            showGuidelines = e.target.checked;
+            clearCanvas(); // 每次切换都刷新绘画区域
+        });
+        
+        // 自动重置复选框事件
+        autoResetCheckbox.addEventListener('change', (e) => {
+            toggleCountOptions(e.target.checked);
+        });
+        
+        // 次数选择事件
+        radioOptions.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    resetAfterCount = parseInt(e.target.value);
+                }
+            });
+        });
+        
+        // 初始化
+        window.addEventListener('load', () => {
+            initCanvas();
+            toggleCountOptions(autoResetCheckbox.checked);
+            updateScoreDisplay(); // 初始化评分显示
+            updateCountDisplay(); // 初始化计数显示
+        });
+        
+        // 添加键盘事件监听 - Space键重置
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault(); // 防止页面滚动
+                clearCanvas();
+                drawCount = 0;
+                updateCountDisplay();
+            }
+        });
+    </script>
+</body>
+</html>
