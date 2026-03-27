@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>弹跳球</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, sans-serif;
+        }
+        h1 { color: #fff; margin-bottom: 10px; font-size: 2.5em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .score-board { color: #fff; font-size: 1.5em; margin-bottom: 15px; display: flex; gap: 50px; }
+        .score-board span { color: #4ecdc4; }
+        canvas {
+            background: #1a1a2e;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        }
+        .controls { color: #fff; margin-top: 15px; text-align: center; }
+        .controls p { margin: 5px 0; opacity: 0.8; }
+        .btn {
+            margin-top: 10px;
+            padding: 10px 25px;
+            font-size: 1em;
+            background: #fff;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn:hover { transform: scale(1.05); }
+        .start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            padding: 40px 60px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        .start-screen h2 { color: #4ecdc4; font-size: 2em; margin-bottom: 15px; }
+        .start-screen p { color: #fff; font-size: 1.1em; margin-bottom: 20px; }
+        .wrapper { position: relative; }
+    </style>
+</head>
+<body>
+    <h1>弹跳球</h1>
+    <div class="score-board">
+        <div>玩家: <span id="playerScore">0</span></div>
+        <div>电脑: <span id="cpuScore">0</span></div>
+    </div>
+    <div class="wrapper">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+        <div class="start-screen" id="startScreen">
+            <h2>乒乓球对战</h2>
+            <p>玩家1: W/S 控制 | 玩家2: ↑/↓ 控制</p>
+            <p>或点击画布开始与电脑对战</p>
+            <button class="btn" onclick="startGame('cpu')">开始游戏</button>
+        </div>
+    </div>
+    <div class="controls">
+        <p>W/S - 玩家1 | ↑/↓ - 玩家2</p>
+        <button class="btn" onclick="startGame('cpu')">开始游戏</button>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const paddleHeight = 80;
+        const paddleWidth = 12;
+        const ballSize = 10;
+        const paddleSpeed = 6;
+        const cpuSpeed = 4;
+        
+        let player1 = { x: 20, y: 160, score: 0, up: false, down: false };
+        let player2 = { x: 568, y: 160, score: 0, up: false, down: false };
+        let ball = { x: 300, y: 200, dx: 5, dy: 3 };
+        let gameMode = null;
+        let gameActive = false;
+        
+        function drawPaddle(p) {
+            ctx.fillStyle = '#4ecdc4';
+            ctx.beginPath();
+            ctx.roundRect(p.x, p.y, paddleWidth, paddleHeight, 6);
+            ctx.fill();
+        }
+        
+        function drawBall() {
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ballSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(78,205,196,0.3)';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ballSize + 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function drawCenterLine() {
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(300, 0);
+            ctx.lineTo(300, 400);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawCenterLine();
+            drawPaddle(player1);
+            drawPaddle(player2);
+            drawBall();
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 60px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(player1.score, 150, 70);
+            ctx.fillText(player2.score, 450, 70);
+        }
+        
+        function update() {
+            if (!gameActive) return;
+            
+            if (player1.up) player1.y = Math.max(0, player1.y - paddleSpeed);
+            if (player1.down) player1.y = Math.min(400 - paddleHeight, player1.y + paddleSpeed);
+            
+            if (gameMode === 'cpu') {
+                if (ball.y < player2.y + paddleHeight / 2) {
+                    player2.y = Math.max(0, player2.y - cpuSpeed);
+                }
+                if (ball.y > player2.y + paddleHeight / 2) {
+                    player2.y = Math.min(400 - paddleHeight, player2.y + cpuSpeed);
+                }
+            } else {
+                if (player2.up) player2.y = Math.max(0, player2.y - paddleSpeed);
+                if (player2.down) player2.y = Math.min(400 - paddleHeight, player2.y + paddleSpeed);
+            }
+            
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            if (ball.y - ballSize < 0 || ball.y + ballSize > 400) {
+                ball.dy *= -1;
+            }
+            
+            if (ball.x - ballSize < player1.x + paddleWidth && 
+                ball.y > player1.y && ball.y < player1.y + paddleHeight) {
+                ball.dx = Math.abs(ball.dx);
+                ball.dy += (ball.y - (player1.y + paddleHeight/2)) * 0.1;
+            }
+            
+            if (ball.x + ballSize > player2.x && 
+                ball.y > player2.y && ball.y < player2.y + paddleHeight) {
+                ball.dx = -Math.abs(ball.dx);
+                ball.dy += (ball.y - (player2.y + paddleHeight/2)) * 0.1;
+            }
+            
+            if (ball.x < 0) {
+                player2.score++;
+                document.getElementById('cpuScore').textContent = player2.score;
+                resetBall();
+            }
+            if (ball.x > 600) {
+                player1.score++;
+                document.getElementById('playerScore').textContent = player1.score;
+                resetBall();
+            }
+            
+            draw();
+            requestAnimationFrame(update);
+        }
+        
+        function resetBall() {
+            ball.x = 300;
+            ball.y = 200;
+            ball.dx = (Math.random() > 0.5 ? 1 : -1) * 5;
+            ball.dy = (Math.random() - 0.5) * 6;
+        }
+        
+        function startGame(mode) {
+            gameMode = mode;
+            gameActive = true;
+            player1.score = 0;
+            player2.score = 0;
+            document.getElementById('playerScore').textContent = '0';
+            document.getElementById('cpuScore').textContent = '0';
+            document.getElementById('startScreen').style.display = 'none';
+            resetBall();
+            update();
+        }
+        
+        function handleKey(e) {
+            if (e.key === 'w' || e.key === 'W') player1.up = true;
+            if (e.key === 's' || e.key === 'S') player1.down = true;
+            if (e.key === 'ArrowUp') { e.preventDefault(); player2.up = true; }
+            if (e.key === 'ArrowDown') { e.preventDefault(); player2.down = true; }
+        }
+        
+        document.addEventListener('keyup', e => {
+            if (e.key === 'w' || e.key === 'W') player1.up = false;
+            if (e.key === 's' || e.key === 'S') player1.down = false;
+            if (e.key === 'ArrowUp') player2.up = false;
+            if (e.key === 'ArrowDown') player2.down = false;
+        });
+        
+        canvas.addEventListener('click', () => {
+            if (!gameActive) startGame('cpu');
+        });
+        
+        draw();
+    </script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打砖块</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, sans-serif;
+        }
+        h1 { color: #fff; margin-bottom: 10px; font-size: 2.5em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .score-board { color: #fff; font-size: 1.3em; margin-bottom: 15px; }
+        canvas {
+            background: #1a1a2e;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        }
+        .controls { color: #fff; margin-top: 15px; text-align: center; }
+        .controls p { margin: 5px 0; opacity: 0.8; }
+        .btn {
+            margin-top: 10px;
+            padding: 10px 25px;
+            font-size: 1em;
+            background: #fff;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn:hover { transform: scale(1.05); }
+        .game-over, .win {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 40px 60px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+        }
+        .game-over { background: rgba(255,107,107,0.95); }
+        .win { background: rgba(78,205,196,0.95); }
+        .game-over h2, .win h2 { color: #fff; font-size: 2em; margin-bottom: 15px; }
+        .game-over p, .win p { color: #fff; font-size: 1.2em; margin-bottom: 20px; }
+        .wrapper { position: relative; }
+    </style>
+</head>
+<body>
+    <h1>打砖块</h1>
+    <p class="score-board">得分: <span id="score">0</span> | 生命: <span id="lives">3</span></p>
+    <div class="wrapper">
+        <canvas id="gameCanvas" width="600" height="500"></canvas>
+        <div class="game-over" id="gameOver">
+            <h2>游戏结束!</h2>
+            <p>最终得分: <span id="finalScore">0</span></p>
+            <button class="btn" onclick="resetGame()">再玩一次</button>
+        </div>
+        <div class="win" id="win">
+            <h2>恭喜通关!</h2>
+            <p>得分: <span id="winScore">0</span></p>
+            <button class="btn" onclick="resetGame()">再来一局</button>
+        </div>
+    </div>
+    <div class="controls">
+        <p>使用 ← → 或 A D 控制球拍 | 点击开始</p>
+        <button class="btn" onclick="resetGame()">重新开始</button>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const paddle = { width: 100, height: 15, x: 250, speed: 8 };
+        const ball = { x: 300, y: 400, radius: 8, dx: 4, dy: -4 };
+        const brickConfig = { rows: 5, cols: 10, width: 55, height: 20, padding: 5 };
+        const bricks = [];
+        let score = 0;
+        let lives = 3;
+        let gameActive = false;
+        let gameWon = false;
+        
+        function initBricks() {
+            bricks.length = 0;
+            const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1', '#5f27cd'];
+            for (let r = 0; r < brickConfig.rows; r++) {
+                for (let c = 0; c < brickConfig.cols; c++) {
+                    bricks.push({
+                        x: c * (brickConfig.width + brickConfig.padding) + 15,
+                        y: r * (brickConfig.height + brickConfig.padding) + 40,
+                        alive: true,
+                        color: colors[r]
+                    });
+                }
+            }
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            bricks.forEach(brick => {
+                if (brick.alive) {
+                    ctx.fillStyle = brick.color;
+                    ctx.beginPath();
+                    ctx.roundRect(brick.x, brick.y, brickConfig.width, brickConfig.height, 5);
+                    ctx.fill();
+                }
+            });
+            
+            ctx.fillStyle = '#4ecdc4';
+            ctx.beginPath();
+            ctx.roundRect(paddle.x, canvas.height - 30, paddle.width, paddle.height, 8);
+            ctx.fill();
+            
+            const gradient = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, ball.radius);
+            gradient.addColorStop(0, '#fff');
+            gradient.addColorStop(1, '#4ecdc4');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius + 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function update() {
+            if (!gameActive) return;
+            
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
+                ball.dx *= -1;
+            }
+            if (ball.y - ball.radius < 0) {
+                ball.dy *= -1;
+            }
+            
+            if (ball.y + ball.radius > canvas.height - 30) {
+                if (ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+                    ball.dy *= -1;
+                    const hitPos = (ball.x - paddle.x) / paddle.width;
+                    ball.dx = (hitPos - 0.5) * 8;
+                }
+            }
+            
+            if (ball.y + ball.radius > canvas.height) {
+                lives--;
+                document.getElementById('lives').textContent = lives;
+                if (lives <= 0) {
+                    gameActive = false;
+                    document.getElementById('finalScore').textContent = score;
+                    document.getElementById('gameOver').style.display = 'block';
+                } else {
+                    ball.x = 300;
+                    ball.y = 400;
+                    ball.dx = 4;
+                    ball.dy = -4;
+                }
+            }
+            
+            bricks.forEach(brick => {
+                if (brick.alive && 
+                    ball.x > brick.x && ball.x < brick.x + brickConfig.width &&
+                    ball.y > brick.y && ball.y < brick.y + brickConfig.height) {
+                    brick.alive = false;
+                    ball.dy *= -1;
+                    score += 10;
+                    document.getElementById('score').textContent = score;
+                }
+            });
+            
+            if (bricks.every(b => !b.alive)) {
+                gameActive = false;
+                gameWon = true;
+                document.getElementById('winScore').textContent = score;
+                document.getElementById('win').style.display = 'block';
+            }
+            
+            draw();
+            if (gameActive) requestAnimationFrame(update);
+        }
+        
+        function handleKey(e) {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                paddle.x = Math.max(0, paddle.x - paddle.speed);
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                paddle.x = Math.min(canvas.width - paddle.width, paddle.x + paddle.speed);
+            }
+        }
+        
+        canvas.addEventListener('click', () => {
+            if (!gameActive && !gameWon) {
+                gameActive = true;
+                update();
+            }
+        });
+        
+        document.addEventListener('keydown', handleKey);
+        
+        function resetGame() {
+            paddle.x = 250;
+            ball.x = 300;
+            ball.y = 400;
+            ball.dx = 4;
+            ball.dy = -4;
+            score = 0;
+            lives = 3;
+            gameActive = false;
+            gameWon = false;
+            document.getElementById('score').textContent = score;
+            document.getElementById('lives').textContent = lives;
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('win').style.display = 'none';
+            initBricks();
+            draw();
+        }
+        
+        resetGame();
+    </script>
+</body>
+</html>
