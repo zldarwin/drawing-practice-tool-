@@ -193,9 +193,11 @@
         
         function handleKey(e) {
             if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                e.preventDefault();
                 paddle.x = Math.max(0, paddle.x - paddle.speed);
             }
             if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                e.preventDefault();
                 paddle.x = Math.min(canvas.width - paddle.width, paddle.x + paddle.speed);
             }
         }

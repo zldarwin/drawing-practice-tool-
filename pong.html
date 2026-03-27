@@ -204,8 +204,8 @@
         }
         
         function handleKey(e) {
-            if (e.key === 'w' || e.key === 'W') player1.up = true;
-            if (e.key === 's' || e.key === 'S') player1.down = true;
+            if (e.key === 'w' || e.key === 'W') { e.preventDefault(); player1.up = true; }
+            if (e.key === 's' || e.key === 'S') { e.preventDefault(); player1.down = true; }
             if (e.key === 'ArrowUp') { e.preventDefault(); player2.up = true; }
             if (e.key === 'ArrowDown') { e.preventDefault(); player2.down = true; }
         }
