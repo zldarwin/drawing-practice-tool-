@@ -57,6 +57,17 @@
             text-align: center;
             display: none;
         }
+        .start-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.5);
+            padding: 30px 50px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .start-overlay p { color: #fff; font-size: 1.2em; margin-bottom: 10px; }
         .game-over h2 { color: #fff; font-size: 2em; margin-bottom: 15px; }
         .game-over p { color: #fff; font-size: 1.2em; margin-bottom: 20px; }
         .wrapper { position: relative; }
@@ -71,6 +82,9 @@
             <h2>游戏结束!</h2>
             <p>得分: <span id="finalScore">0</span></p>
             <button class="btn" onclick="resetGame()">再玩一次</button>
+        </div>
+        <div class="start-overlay" id="startOverlay">
+            <p>点击屏幕或按空格键开始</p>
         </div>
     </div>
     <div class="controls">
@@ -135,25 +149,36 @@
             ctx.strokeStyle = '#27AE60';
             ctx.lineWidth = 3;
             
+            const radius = 15;
             ctx.beginPath();
-            ctx.roundRect(pipe.x, 0, pipeWidth, pipe.top, [0, 0, 15, 15]);
+            ctx.moveTo(pipe.x + radius, 0);
+            ctx.lineTo(pipe.x + pipeWidth - radius, 0);
+            ctx.quadraticCurveTo(pipe.x + pipeWidth, 0, pipe.x + pipeWidth, radius);
+            ctx.lineTo(pipe.x + pipeWidth, pipe.top);
+            ctx.lineTo(pipe.x, pipe.top);
+            ctx.lineTo(pipe.x, radius);
+            ctx.quadraticCurveTo(pipe.x, 0, pipe.x + radius, 0);
+            ctx.closePath();
             ctx.fill();
             ctx.stroke();
             
             ctx.fillStyle = '#27AE60';
-            ctx.beginPath();
-            ctx.roundRect(pipe.x - 5, pipe.top - 20, pipeWidth + 10, 20, 5);
-            ctx.fill();
+            ctx.fillRect(pipe.x - 5, pipe.top - 20, pipeWidth + 10, 20);
             
             ctx.fillStyle = '#2ECC71';
             ctx.beginPath();
-            ctx.roundRect(pipe.x, pipe.bottom, pipeWidth, canvas.height - pipe.bottom, [15, 15, 0, 0]);
+            ctx.moveTo(pipe.x, pipe.bottom);
+            ctx.lineTo(pipe.x, canvas.height - 50);
+            ctx.lineTo(pipe.x + pipeWidth, canvas.height - 50);
+            ctx.lineTo(pipe.x + pipeWidth, pipe.bottom + 20);
+            ctx.quadraticCurveTo(pipe.x + pipeWidth, pipe.bottom, pipe.x + pipeWidth - radius, pipe.bottom);
+            ctx.lineTo(pipe.x + radius, pipe.bottom);
+            ctx.quadraticCurveTo(pipe.x, pipe.bottom, pipe.x, pipe.bottom + 20);
+            ctx.closePath();
             ctx.fill();
             
             ctx.fillStyle = '#27AE60';
-            ctx.beginPath();
-            ctx.roundRect(pipe.x - 5, pipe.bottom, pipeWidth + 10, 20, 5);
-            ctx.fill();
+            ctx.fillRect(pipe.x - 5, pipe.bottom, pipeWidth + 10, 20);
         }
         
         function drawGround() {
@@ -239,6 +264,7 @@
             if (!gameStarted) {
                 gameStarted = true;
                 gameActive = true;
+                document.getElementById('startOverlay').style.display = 'none';
                 update();
             }
             if (gameActive) {
@@ -261,14 +287,15 @@
             gameStarted = false;
             document.getElementById('scoreDisplay').textContent = '0';
             document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('startOverlay').style.display = 'block';
             draw();
         }
         
         canvas.addEventListener('click', jump);
         canvas.addEventListener('touchstart', e => { e.preventDefault(); jump(); });
-        document.addEventListener('keydown', e => { if (e.key === ' ') jump(); });
+        document.addEventListener('keydown', e => { if (e.key === ' ') { e.preventDefault(); jump(); } });
         
-        draw();
+        resetGame();
     </script>
 </body>
 </html>
